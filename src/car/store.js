@@ -27,10 +27,14 @@ class CarStore {
             throw new Error("The following fields are required: 'manufacturer', 'model', 'fabricationDate', 'horsePower', 'isElectric'.");
         }
 
+        car.version = 1;
+
         return this.store.insert(car);
     }
 
     async update(props, car) {
+        const version = car.version || 1;
+        car.version = version + 1;
         return this.store.update(props, car);
     }
 

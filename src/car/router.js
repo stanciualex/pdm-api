@@ -5,7 +5,7 @@ const { sendNotification } = require('../utils/wss');
 
 const getAll = async (req, res) => {
     const { user } = req;
-    const { page: pageString, limit: limitString, search } = req.query;
+    const { page: pageString, limit: limitString, search, startDate, endDate, type } = req.query;
     const page = parseInt(pageString);
     const limit = parseInt(limitString);
     const searchValue = search && search.toLowerCase();
@@ -29,6 +29,34 @@ const getAll = async (req, res) => {
             )),
             totalPages: 1
         })
+    }
+
+    let carsCopy = [...cars];
+    let filterApplied = false;
+    if (startDate && startDate !== 'undefined') {
+        carsCopy = carsCopy.filter(car => new Date(startDate) <= new Date(car.fabricationDate));
+        filterApplied = true;
+    }
+    if (endDate && endDate !== 'undefined') {
+        carsCopy = carsCopy.filter(car => new Date(car.fabricationDate) <= new Date(endDate));
+        filterApplied = true;
+    }
+    if (type) {
+        if (type === 'electric') {
+            carsCopy = carsCopy.filter(car => car.isElectric);
+            filterApplied = true;
+        }
+        if (type === 'nonElectric') {
+            carsCopy = carsCopy.filter(car => !car.isElectric);
+            filterApplied = true;
+        }
+    }
+
+    if (filterApplied) {
+        return res.status(200).send({
+            items: carsCopy,
+            totalPages: 1,
+        });
     }
 
     res.status(200).send({
@@ -82,6 +110,18 @@ const update = async (req, res) => {
 
     if (!user._id) {
         return await create(req, res);
+    }
+
+    const newCarVersion = car.version || 1;
+    const storedCar = await carStore.findOne({ _id: id });
+    const storedCarVersion = (storedCar && storedCar.version) || 1;
+
+    if (newCarVersion !== storedCarVersion) {
+        const message = `[ERROR] Version conflicts for item with id ${id}! Latest stored version is ${storedCarVersion}. Your payload version is ${newCarVersion}.`;
+        return res.status(400).send({
+            versionError: true,
+            message,
+        });
     }
 
     car.userId = user._id;
